@@ -135,7 +135,7 @@ class ArcBallUtil(ArcBall):
         # Set Last Static Rotation To Last Dynamic One
         self.LastRot = self.ThisRot.copy()
 
-    def onclickLeftDown(self, cursor_x: float, cursor_y: float):
+    def onClickLeftDown(self, cursor_x: float, cursor_y: float):
         # Set Last Static Rotation To Last Dynamic One
         self.LastRot = self.ThisRot.copy()
         # Prepare For Dragging
@@ -162,5 +162,6 @@ class ArcBallUtil(ArcBall):
         if np.sum(np.dot(q1, q1)) < self.Epsilon:
             return np.identity(3, 'f4')
         r = R.from_quat(q1)
+
         # transpose to make it identical to the C++ version
         return r.as_matrix().T

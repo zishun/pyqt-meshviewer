@@ -124,7 +124,7 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
 
     def mousePressEvent(self, event):
         if event.buttons() & QtCore.Qt.LeftButton:
-            self.arc_ball.onclickLeftDown(event.x(), event.y())
+            self.arc_ball.onClickLeftDown(event.x(), event.y())
 
     def mouseReleaseEvent(self, event):
         if event.buttons() & QtCore.Qt.LeftButton:
@@ -162,5 +162,6 @@ class MainWindow(QtWidgets.QMainWindow):
 if __name__ == '__main__':
     app = QtWidgets.QApplication([])
     win = MainWindow()
+
     win.show()
     app.exec()
