@@ -64,6 +64,7 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
     def set_mesh(self, mesh):
         self.mesh = mesh
         self.mesh.update_normals()
+        assert(self.mesh.n_vertices() > 0 and self.mesh.n_faces() > 0)
         index_buffer = self.ctx.buffer(
             np.array(self.mesh.face_vertex_indices(), dtype="u4").tobytes())
         vao_content = [
@@ -114,18 +115,16 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
 
         self.vao.render()
 
-    def resizeGL(self, Width, Height):
-        if Height == 0:
-            Height = 1
-        self.ctx.viewport = (0, 0, Width, Height)
-        self.arc_ball.setBounds(Width, Height)
+    def resizeGL(self, width, height):
+        width = max(2, width)
+        height = max(2, height)
+        self.ctx.viewport = (0, 0, width, height)
+        self.arc_ball.setBounds(width, height)
         return
 
     def mousePressEvent(self, event):
         if event.buttons() & QtCore.Qt.LeftButton:
-            # pos = event.pos()
             self.arc_ball.onclickLeftDown(event.x(), event.y())
-            # self.clicked.emit()
 
     def mouseReleaseEvent(self, event):
         if event.buttons() & QtCore.Qt.LeftButton:
@@ -162,8 +161,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication([])
-
     win = MainWindow()
-
     win.show()
     app.exec()
