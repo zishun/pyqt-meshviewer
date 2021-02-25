@@ -19,4 +19,4 @@
 
 ## Applications
 
-1. [SMPLViewer](./applications/smpl_viewer/): a SMPL body model manipulation
+1. [SMPLViewer](./applications/smpl_viewer/): a SMPL body model manipulator
