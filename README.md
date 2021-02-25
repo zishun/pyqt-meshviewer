@@ -15,3 +15,8 @@
     ```
 2. Click ```File > Open``` in the menu bar to select a mesh file.
 3. Drag the left mouse button to rotate.
+
+
+## Applications
+
+1. [SMPLViewer](./applications/smpl_viewer/): a SMPL body model manipulation
