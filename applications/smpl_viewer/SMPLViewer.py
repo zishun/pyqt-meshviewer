@@ -8,7 +8,7 @@ Date: Feb 25, 2021
 """
 
 import moderngl
-from PyQt5 import QtOpenGL, QtWidgets, QtCore
+from PyQt5 import QtOpenGL, QtWidgets, QtCore, QtGui
 import numpy as np
 import openmesh as om
 from pyrr import Matrix44
@@ -70,14 +70,15 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
             vertex_shader='''
                 #version 330
                 uniform mat4 Mvp;
+                uniform vec3 Light;
                 in vec3 in_position;
                 in vec3 in_normal;
                 out vec3 v_vert;
                 out vec3 v_norm;
                 void main() {
-                    v_vert = in_position;
-                    v_norm = in_normal;
+                    v_norm = mat3(Mvp) * in_normal;
                     gl_Position = Mvp * vec4(in_position, 1.0);
+                    v_vert = vec3(gl_Position);
                 }
             ''',
             fragment_shader='''
@@ -152,7 +153,6 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
                 out vec4 color;
                 void main() {
                     color = vec4(v_color, 1.0);
-                    // color = vec4(0.04, 0.04, 0.04, 1.0);
                 }
             '''
         )
@@ -186,7 +186,7 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
         self.proj = Matrix44.perspective_projection(60.0, self.aspect_ratio,
                                                     0.1, 1000.0)
 
-        self.light.value = (1.0, 1.0, 1.0)
+        self.light.value = (0.5, 1.0, 1.0)
         self.color.value = (1.0, 1.0, 1.0, 0.8)
         mvp = self.proj * self.lookat * self.arc_ball.Transform
         self.mvp.write(mvp.astype('f4'))
@@ -200,6 +200,7 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
             self.arc_ball_j.Transform
         self.mvp_j.write(mvp.astype('f4'))
         self.vao_j.render(moderngl.LINES, 3 * 2)
+        # use geometry shader to change the line width
 
     def resizeGL(self, Width, Height):
         Height = max(2, Height)
@@ -276,6 +277,8 @@ class MainWindow(QtWidgets.QMainWindow):
         QtWidgets.QMainWindow.__init__(self)
         self.resize(640, 480)
         self.setWindowTitle('SMPL Viewer')
+        self.setWindowIcon(QtGui.QIcon('icon.png'))
+
         self.gl = QGLControllerWidget(self)
 
         self.initGUI()
