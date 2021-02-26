@@ -286,7 +286,6 @@ class MainWindow(QtWidgets.QMainWindow):
         timer.timeout.connect(self.gl.updateGL)
         timer.start()
 
-
     def initGUI(self):
         lvbox = QtWidgets.QVBoxLayout()
 
@@ -345,7 +344,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self, 'Open body parameters', '', "NPZ files (*.npz)")
         self.gl.load_params(fname[0])
 
-
     def saveParams(self):
         fname = QtWidgets.QFileDialog.getSaveFileName(
             self, 'Write body parameters', '', "NPZ files (*.npz)")
@@ -355,6 +353,7 @@ class MainWindow(QtWidgets.QMainWindow):
         fname = QtWidgets.QFileDialog.getSaveFileName(
             self, 'Write mesh', '', "Mesh files (*.obj *.off *.stl *.ply)")
         self.gl.write_mesh(fname[0])
+
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication([])
