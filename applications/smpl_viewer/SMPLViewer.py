@@ -207,6 +207,7 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
         Width = max(2, Width)
         self.ctx.viewport = (0, 0, Width, Height)
         self.arc_ball.setBounds(Width, Height)
+        self.arc_ball_j.setBounds(Width, Height)
         return
 
     def mousePressEvent(self, event):
