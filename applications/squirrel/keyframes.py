@@ -15,6 +15,8 @@ Date: Feb 28, 2021
 import numpy as np
 import openmesh as om
 from scipy.spatial.distance import cdist
+from zipfile import ZipFile
+import tempfile
 
 
 class Keyframes:
@@ -98,7 +100,14 @@ class Keyframes:
 
     def load_asg(self, fn):
         print('asg file loading not implemented!', fn)
+        return
+        # print('Warning! Vertex colors in asg file are not loaded.')
         # .asg is a zipped xml file
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ZipFile(fn, 'r') as zip_ref:
+                zip_ref.extractall(tmpdir)
+                with open(tmpdir + '/root.xml', 'r') as f:
+                    content = f.read()
 
     def update_mesh(self, pose=None):
         if pose is None:
@@ -113,14 +122,13 @@ class Keyframes:
             v[self.part_sizes[i]:self.part_sizes[i+1]] = \
                 self.verts[self.part_sizes[i]:self.part_sizes[i+1]] @ G[i, :3, :3] \
                 + G[i, 3, :3]
-        # mesh = om.TriMesh(v, self.faces)
-        # om.write_mesh('../data/test.obj', mesh)
         return v
 
     def prepare_interpolation(self):
-        # TODO: sec4.1 Special care must be taken when there are fewer than
+        # Sec4.1 "Special care must be taken when there are fewer than
         # four spatial keyframes and when the spatial distribution of the
-        # markers is degenerate 
+        # markers is degenerate."
+        # rcond in lstsq is used to handle the degenerated case.
 
         n = self.num_keys
         A = np.zeros((n+4, n+4))
@@ -133,7 +141,7 @@ class Keyframes:
         B = np.zeros((n+4, 12*self.num_parts))
         B[:n, :] = self.poses[:, :, :, :3].reshape((n, -1))
         #self.coeff = np.linalg.solve(A, B)
-        self.coeff = np.linalg.lstsq(A, B, rcond=None)[0]
+        self.coeff = np.linalg.lstsq(A, B, rcond=1.e-2)[0]
 
     def interpolate(self, p):
         n = self.num_keys
@@ -160,4 +168,6 @@ if __name__ == '__main__':
     keyframes.load_keys('./squirrel/data/squirrel_run.key')
     # print(keyframes.balls, keyframes.poses)
     # keyframes.update_mesh(keyframes.poses[2])
-    keyframes.update_mesh(keyframes.transforms)
+    v = keyframes.update_mesh(keyframes.transforms)
+    # mesh = om.TriMesh(v, keyframes.faces)
+    # om.write_mesh('../data/test.obj', mesh)

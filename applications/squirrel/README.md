@@ -31,11 +31,11 @@ This is an implementation of the animation method presented in
     * Drag the left mouse button to change the view.
 
 
-## Known Issues
+## Notes
 
 * Only for viewing. Cannot create new keyframes.
 * ```.asg``` file reading is not implemented. Thus cannot load ```bear_trouble.key``` or ```mashroom_jumping.key```.
-* The degenerated cases described at the end of section 4.1 is not handled.
+* To handle the degenerated cases described at the end of section 4.1, small singular values in the linear system is cut-off, which is different from the original paper.
 * SVD decomposition is used for orthonormalization, different from the method in section 4.2.
 
 
