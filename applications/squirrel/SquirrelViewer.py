@@ -222,7 +222,7 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
         if self.balls is None:
             return
 
-        c = self.balls[:-1].mean(axis=0)
+        c = self.balls[-1]
         c = self.mvp_mat.T @ np.hstack((c, 1.0))
         z = c[2] / c[3]
 
@@ -288,7 +288,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def openFile(self):
         fname = QtWidgets.QFileDialog.getOpenFileName(
             self, 'Open file', '', "key files (*.key)")
-        self.gl.read_key(fname[0])
+        if len(fname[0]) > 0:
+            self.gl.read_key(fname[0])
 
 
 if __name__ == '__main__':
