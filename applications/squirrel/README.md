@@ -14,7 +14,7 @@ This is an implementation of the animation method presented in
     pyqt-meshviewer/applications/spatial_keyframing/
      |
      ├──keyframes.py
-     ├──squirrel_viewer.py
+     ├──SquirrelViewer.py
      ├──...
      ├──...
      └──squirrel/
@@ -25,7 +25,7 @@ This is an implementation of the animation method presented in
          └──...
     ```
 
-3. Run ```python ./squirrel_viewer.py```.
+3. Run ```python ./SquirrelViewer.py```.
     * Click ```File > Open``` to load a ```.key``` file.
     * Drag the right mouse button to move the control cursor
     * Drag the left mouse button to change the view.
