@@ -50,6 +50,25 @@ class StaticSettings:
             '23 Right Hand',
             ]
         self.initial_joint = 3
+        # TODO: beta range
+
+
+class ArcBallUtilJoint(ArcBallUtil):
+
+    def __init__(self, NewWidth: float, NewHeight: float):
+        self.x = 0.0
+        self.y = 0.0
+        super().__init__(NewWidth, NewHeight)
+
+    def setOrigin(self, x, y):
+        self.x = x
+        self.y = y
+
+    def onDrag(self, cursor_x, cursor_y):
+        super().onDrag(cursor_x-self.x, cursor_y-self.y)
+
+    def onClickLeftDown(self, cursor_x, cursor_y):
+        super().onClickLeftDown(cursor_x-self.x, cursor_y-self.y)
 
 
 class QGLControllerWidget(QtOpenGL.QGLWidget):
@@ -106,7 +125,7 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
         self.light = self.prog['Light']
         self.color = self.prog['Color']
         self.mvp = self.prog['Mvp']
-        self.arc_ball = ArcBallUtil(2, 2)  # self.width(), self.height())
+        self.arc_ball = ArcBallUtil(self.width(), self.height())
         self.set_mesh()
         self.set_joint_drawing()
         self.lookat = Matrix44.look_at(
@@ -158,7 +177,8 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
         )
 
         self.mvp_j = self.prog_j['Mvp']
-        self.arc_ball_j = ArcBallUtil(2, 2)
+        # transformation of self.arc_ball is included inside self.arc_ball_j
+        self.arc_ball_j = ArcBallUtilJoint(self.width(), self.height())
         self.set_active_joint(self.ssettings.initial_joint)
         frame = np.zeros((6, 3), 'f4')
         frame[1, 0] = 1.0
@@ -166,14 +186,15 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
         frame[5, 2] = 1.0
         frame *= 0.6
         color = np.zeros((6, 3), 'f4')
-        color[:2, 0] = 1.0
-        color[2:4, 1] = 1.0
-        color[4:, 2] = 1.0
+        color[:2, 0] = 1.0  # R
+        color[2:4, 1] = 1.0  # G
+        color[4:, 2] = 1.0  # B
 
         vao_content = [
             (self.ctx.buffer(frame.tobytes()), '3f', 'in_position'),
             (self.ctx.buffer(color.tobytes()), '3f', 'in_color')]
         self.vao_j = self.ctx.vertex_array(self.prog_j, vao_content)
+        # use geometry shader to change the line width
 
     def paintGL(self):
         self.ctx.clear(1.0, 1.0, 1.0)
@@ -182,13 +203,9 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
         if self.mesh is None:
             return
 
-        self.aspect_ratio = self.width()/max(1.0, self.height())
-        self.proj = Matrix44.perspective_projection(60.0, self.aspect_ratio,
-                                                    0.1, 1000.0)
-
         self.light.value = (0.5, 1.0, 1.0)
         self.color.value = (1.0, 1.0, 1.0, 0.8)
-        mvp = self.proj * self.lookat * self.arc_ball.Transform
+        mvp = self.proj * self.arc_ball.Transform
         self.mvp.write(mvp.astype('f4'))
 
         self.vao.render()
@@ -196,18 +213,27 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
         self.ctx.finish()
 
     def draw_joint(self):
-        mvp = self.proj * self.lookat * self.arc_ball.Transform * \
-            self.arc_ball_j.Transform
+        mvp = self.proj * self.arc_ball_j.Transform
         self.mvp_j.write(mvp.astype('f4'))
-        self.vao_j.render(moderngl.LINES, 3 * 2)
-        # use geometry shader to change the line width
+        self.vao_j.render(moderngl.LINES, 6)
 
-    def resizeGL(self, Width, Height):
-        Height = max(2, Height)
-        Width = max(2, Width)
-        self.ctx.viewport = (0, 0, Width, Height)
-        self.arc_ball.setBounds(Width, Height)
-        self.arc_ball_j.setBounds(Width, Height)
+        # set joint arcball center
+        c2d = np.array([.0, .0, .0, 1.0]) @ mvp
+        self.arc_ball_j.setOrigin((c2d[0]/c2d[3])/2*self.width(),
+                                  (-c2d[1]/c2d[3])/2*self.height())
+
+    def resizeGL(self, width, height):
+        height = max(2, height)
+        width = max(2, width)
+        self.ctx.viewport = (0, 0, width, height)
+        
+        aspect_ratio = width/height
+        self.proj = Matrix44.perspective_projection(60.0, aspect_ratio,
+                                                    0.1, 1000.0)
+        self.proj = self.proj * self.lookat
+
+        self.arc_ball.setBounds(width, height)
+        self.arc_ball_j.setBounds(width, height)
         return
 
     def mousePressEvent(self, event):
@@ -219,37 +245,43 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
     def mouseReleaseEvent(self, event):
         if event.buttons() & QtCore.Qt.LeftButton:
             self.arc_ball.onClickLeftUp()
+            self.arc_ball_j.onClickLeftUp()
         if event.buttons() & QtCore.Qt.RightButton:
             self.arc_ball_j.onClickLeftUp()
 
     def mouseMoveEvent(self, event):
         if event.buttons() & QtCore.Qt.LeftButton:
-                self.arc_ball.onDrag(event.x(), event.y())
+            self.arc_ball.onDrag(event.x(), event.y())
+            self.arc_ball_j.Transform = self.smpl.G[self.active_joint].T @ self.arc_ball.Transform
+            self.arc_ball_j.ThisRot = self.arc_ball_j.Transform[:3, :3]
         if event.buttons() & QtCore.Qt.RightButton:
             self.arc_ball_j.onDrag(event.x(), event.y())
-            r = R.from_matrix(
-                self.arc_ball_j.Transform[:3, :3].T).as_rotvec()
+
+            RjT = self.arc_ball_j.Transform[:3, :3]
+            Rparent = self.smpl.G[self.smpl.parent[self.active_joint]][:3, :3]
+            RviewT = self.arc_ball.Transform[:3, :3]
+            r = R.from_matrix(Rparent.T @ RviewT @ RjT.T).as_rotvec()
+            
             self.pose[self.active_joint*3:self.active_joint*3+3] = r
             self.update_mesh_data()
 
     def set_beta(self, val, i):
         scale = 3
-        self.beta[i] = (val/100.0-0.5)*2*scale
+        self.beta[i] = (val/100.0-0.5)*2*scale  # TODO: beta range
         self.update_mesh_data()
 
     def update_mesh_data(self):
         if self.mesh is None:
             return
         self.smpl.set_params(beta=self.beta, pose=self.pose)
-        self.set_mesh()
-        self.arc_ball_j.Transform = self.smpl.G[self.active_joint].T
+        self.set_mesh()  # TODO: better way to update the vao?
+        self.arc_ball_j.Transform = self.smpl.G[self.active_joint].T @ self.arc_ball.Transform
 
     def set_active_joint(self, i):
         self.active_joint = i
         if self.smpl is not None:
-            self.arc_ball_j.ThisRot = self.smpl.R[self.active_joint, :3, :3].T
-            self.arc_ball_j.Transform = self.smpl.G[self.active_joint].T
-            self.arc_ball_j.setBounds(self.width(), self.height())
+            self.arc_ball_j.Transform = self.smpl.G[self.active_joint].T @ self.arc_ball.Transform
+            self.arc_ball_j.ThisRot = self.arc_ball_j.Transform[:3, :3]
 
     def load_SMPL(self, fn):
         self.smpl = SMPLModel(fn)
