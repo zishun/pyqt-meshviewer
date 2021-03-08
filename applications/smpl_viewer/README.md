@@ -1,5 +1,7 @@
 # SMPL Viewer
 
+<img src="https://github.com/zishun/pyqt-meshviewer/raw/master/imgs/screenshot_smpl.png" width="350"/>
+
 ## Dependencies
 
 See [README](../../) in the root folder of this repository. Test by running the mesh viewer ```mgl_qt_meshviewer.py```.

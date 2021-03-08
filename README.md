@@ -20,4 +20,7 @@
 ## Applications
 
 1. [SMPLViewer](./applications/smpl_viewer/): a SMPL body model manipulator
+
+    <img src="https://github.com/zishun/pyqt-meshviewer/raw/master/imgs/screenshot_smpl.png" width="350"/>
+
 2. [Squirrel](./applications/squirrel/): a spatial keyframing method

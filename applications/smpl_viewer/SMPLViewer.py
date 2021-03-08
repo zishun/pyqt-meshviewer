@@ -13,6 +13,7 @@ import numpy as np
 import openmesh as om
 from pyrr import Matrix44
 from scipy.spatial.transform import Rotation as R
+from scipy.sparse import csr_matrix
 
 from ArcBall import ArcBallUtil
 from smpl_np import SMPLModel
@@ -21,8 +22,8 @@ from smpl_np import SMPLModel
 class StaticSettings:
 
     def __init__(self):
-        self.pose_shape = [24, 3]
-        self.beta_shape = [10]
+        self.pose_shape = (24, 3)
+        self.beta_shape = (10,)  # the comman make it a tuple
         self.joint_names = [
             '0 Pelvis',
             '1 Left Hip',
@@ -71,16 +72,55 @@ class ArcBallUtilJoint(ArcBallUtil):
         super().onClickLeftDown(cursor_x-self.x, cursor_y-self.y)
 
 
+class SMPLWrapper(SMPLModel):
+    
+    def __init__(self, model_path):
+        super().__init__(model_path)
+        # prepare vertex normal updating
+        self.F2V = self.get_F2V(self.verts, self.faces)
+
+    def get_F2V(self, V, F):
+        nV = V.shape[0]
+        nF = F.shape[0]
+        vf_cnt = np.zeros((nV), 'f')
+        Mv = []
+        Mi = []
+        Mj = []
+        for i in range(nF):
+            for v in F[i]:
+                vf_cnt[v] += 1
+        inv = 1./vf_cnt
+        for i in range(nF):
+            for v in F[i]:
+                Mi.append(v)
+                Mj.append(i)
+                Mv.append(inv[v])
+        F2V = csr_matrix((Mv, (Mi, Mj)), shape=(nV, nF))
+        return F2V
+
+    def update_normals(self):
+        V = self.verts
+        F = self.faces
+        edge1 = V[F[:, 1]] - V[F[:, 0]]
+        edge2 = V[F[:, 2]] - V[F[:, 0]]
+        face_n = np.cross(edge1, edge2)
+        norm = np.linalg.norm(face_n, axis=1)
+        face_n /= norm[:, np.newaxis]
+        vert_n = self.F2V.dot(face_n)
+        norm = np.linalg.norm(vert_n, axis=1)
+        vert_n /= norm[:, np.newaxis]
+        return vert_n
+
+
 class QGLControllerWidget(QtOpenGL.QGLWidget):
 
     def __init__(self, parent=None):
         self.parent = parent
         super(QGLControllerWidget, self).__init__(parent)
         self.smpl = None
-        self.mesh = None
         self.ssettings = StaticSettings()
-        self.beta = np.zeros(tuple(self.ssettings.beta_shape))
-        self.pose = np.zeros(tuple(self.ssettings.pose_shape))
+        self.beta = np.zeros(self.ssettings.beta_shape)
+        self.pose = np.zeros(self.ssettings.pose_shape)
         
     def initializeGL(self):
         self.ctx = moderngl.create_context()
@@ -122,38 +162,33 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
             '''
         )
 
-        self.light = self.prog['Light']
-        self.color = self.prog['Color']
+        self.prog['Light'].value = (0.5, 1.0, 1.0)
+        self.prog['Color'].value = (1.0, 1.0, 1.0, 0.8)
         self.mvp = self.prog['Mvp']
         self.arc_ball = ArcBallUtil(self.width(), self.height())
-        self.set_mesh()
-        self.set_joint_drawing()
+        # self.init_mesh()
+        self.init_joint_drawing()
         self.lookat = Matrix44.look_at(
             (0.0, 0.0, 3.0),
             (0.0, 0.0, 0.0),
             (0.0, 1.0, 0.0),
         )
 
-    def set_mesh(self):
+    def init_mesh(self):
         if self.smpl is None:
             return
-        self.mesh = om.TriMesh(self.smpl.verts, self.smpl.faces)
-        self.mesh.update_normals()
-        index_buffer = self.ctx.buffer(
-            np.array(self.mesh.face_vertex_indices(), dtype="u4").tobytes())
+        index_buffer = self.ctx.buffer(self.smpl.faces.astype("u4").tobytes())
+        self.vbo_v = self.ctx.buffer(self.smpl.verts.astype("f4").tobytes())
+        self.vbo_n = self.ctx.buffer(self.smpl.update_normals().astype("f4").tobytes())
         vao_content = [
-            (self.ctx.buffer(
-                np.array(self.mesh.points(), dtype="f4").tobytes()),
-                '3f', 'in_position'),
-            (self.ctx.buffer(
-                np.array(self.mesh.vertex_normals(), dtype="f4").tobytes()),
-                '3f', 'in_normal')
+            (self.vbo_v, '3f', 'in_position'),
+            (self.vbo_n, '3f', 'in_normal')
         ]
         self.vao = self.ctx.vertex_array(
                 self.prog, vao_content, index_buffer, 4,
             )
 
-    def set_joint_drawing(self):
+    def init_joint_drawing(self):
         self.prog_j = self.ctx.program(
             vertex_shader='''
                 #version 330
@@ -200,27 +235,22 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
         self.ctx.clear(1.0, 1.0, 1.0)
         self.ctx.enable(moderngl.DEPTH_TEST)
 
-        if self.mesh is None:
+        if self.smpl is None:
             return
 
-        self.light.value = (0.5, 1.0, 1.0)
-        self.color.value = (1.0, 1.0, 1.0, 0.8)
         mvp = self.proj * self.arc_ball.Transform
         self.mvp.write(mvp.astype('f4'))
-
         self.vao.render()
-        self.draw_joint()
-        self.ctx.finish()
 
-    def draw_joint(self):
         mvp = self.proj * self.arc_ball_j.Transform
         self.mvp_j.write(mvp.astype('f4'))
         self.vao_j.render(moderngl.LINES, 6)
-
-        # set joint arcball center
+        # update joint arcball center
         c2d = np.array([.0, .0, .0, 1.0]) @ mvp
         self.arc_ball_j.setOrigin((c2d[0]/c2d[3])/2*self.width(),
                                   (-c2d[1]/c2d[3])/2*self.height())
+
+        self.ctx.finish()
 
     def resizeGL(self, width, height):
         height = max(2, height)
@@ -271,10 +301,11 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
         self.update_mesh_data()
 
     def update_mesh_data(self):
-        if self.mesh is None:
+        if self.smpl is None:
             return
         self.smpl.set_params(beta=self.beta, pose=self.pose)
-        self.set_mesh()  # TODO: better way to update the vao?
+        self.vbo_v.write(self.smpl.verts.astype('f4').tobytes())
+        self.vbo_n.write(self.smpl.update_normals().astype('f4').tobytes())
         self.arc_ball_j.Transform = self.smpl.G[self.active_joint].T @ self.arc_ball.Transform
 
     def set_active_joint(self, i):
@@ -284,10 +315,10 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
             self.arc_ball_j.ThisRot = self.arc_ball_j.Transform[:3, :3]
 
     def load_SMPL(self, fn):
-        self.smpl = SMPLModel(fn)
+        self.smpl = SMPLWrapper(fn)
         self.beta = np.zeros((self.smpl.beta.size))
         self.pose = np.zeros((self.smpl.pose.size))
-        self.set_mesh()
+        self.init_mesh()
         self.set_active_joint(self.active_joint)
 
     def load_params(self, fn):
@@ -301,7 +332,8 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
         np.savez(fn, beta=self.beta, pose=self.pose)
 
     def write_mesh(self, fn):
-        om.write_mesh(fn, self.mesh)
+        mesh = om.TriMesh(self.smpl.verts, self.smpl.faces)
+        om.write_mesh(fn, mesh)
 
 
 class MainWindow(QtWidgets.QMainWindow):
