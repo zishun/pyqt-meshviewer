@@ -288,7 +288,10 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
             self.arc_ball_j.onDrag(event.x(), event.y())
 
             RjT = self.arc_ball_j.Transform[:3, :3]
-            Rparent = self.smpl.G[self.smpl.parent[self.active_joint]][:3, :3]
+            try:
+                Rparent = self.smpl.G[self.smpl.parent[self.active_joint]][:3, :3]
+            except KeyError:
+                Rparent = np.eye(3)
             RviewT = self.arc_ball.Transform[:3, :3]
             r = R.from_matrix(Rparent.T @ RviewT @ RjT.T).as_rotvec()
             
