@@ -15,8 +15,8 @@ Date: Feb 28, 2021
 import numpy as np
 import openmesh as om
 from scipy.spatial.distance import cdist
-from zipfile import ZipFile
-import tempfile
+
+from read_asg import ASGLoader
 
 
 class Keyframes:
@@ -56,6 +56,10 @@ class Keyframes:
 
         self.verts = np.array(vert)
         self.faces = np.array(face, 'i4')-1  # 1-indexed -> 0-indexed
+        mesh = om.TriMesh(self.verts, self.faces)
+        mesh.update_normals()
+        self.vn = mesh.vertex_normals()
+
         self.part_sizes = np.array(cnt, 'i4')
         self.transforms = np.array(transforms)
         self.parent = np.full((self.part_sizes.size-1,), -1, dtype='i4')
@@ -99,20 +103,15 @@ class Keyframes:
             cnt += 1+self.num_parts
 
     def load_asg(self, fn):
-        print('asg file loading not implemented!', fn)
-        return
-        # print('Warning! Vertex colors in asg file are not loaded.')
-        # .asg is a zipped xml file
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with ZipFile(fn, 'r') as zip_ref:
-                zip_ref.extractall(tmpdir)
-                with open(tmpdir + '/root.xml', 'r') as f:
-                    content = f.read()
+        loader = ASGLoader()
+        self.verts, self.vn, self.faces, self.part_sizes, \
+            self.parent, self.transforms, self.order = loader.load_asg(fn)
 
     def update_mesh(self, pose=None):
         if pose is None:
             pose = self.transforms
         v = np.empty_like(self.verts)
+        vn = np.empty_like(self.verts)
         G = np.empty((self.part_sizes.size-1, 4, 4))
         G[0] = pose[self.order[0]]
         for i in range(1, len(self.order)):
@@ -122,7 +121,9 @@ class Keyframes:
             v[self.part_sizes[i]:self.part_sizes[i+1]] = \
                 self.verts[self.part_sizes[i]:self.part_sizes[i+1]] @ G[i, :3, :3] \
                 + G[i, 3, :3]
-        return v
+            vn[self.part_sizes[i]:self.part_sizes[i+1]] = \
+                self.vn[self.part_sizes[i]:self.part_sizes[i+1]] @ G[i, :3, :3]
+        return v, vn
 
     def prepare_interpolation(self):
         # Sec4.1 "Special care must be taken when there are fewer than
@@ -163,9 +164,10 @@ class Keyframes:
 
 if __name__ == '__main__':
     keyframes = Keyframes()
-    keyframes.load_obj('./squirrel/data/squirrel.obj')
+    # keyframes.load_obj('./squirrel/data/squirrel.obj')
+    keyframes.load_asg('./squirrel/data/bear.asg')
     # print(keyframes.verts.shape, keyframes.faces.shape, keyframes.part_sizes)
-    keyframes.load_keys('./squirrel/data/squirrel_run.key')
+    # keyframes.load_keys('./squirrel/data/squirrel_run.key')
     # print(keyframes.balls, keyframes.poses)
     # keyframes.update_mesh(keyframes.poses[2])
     v = keyframes.update_mesh(keyframes.transforms)

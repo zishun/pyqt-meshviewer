@@ -1,7 +1,6 @@
 import moderngl
 from PyQt5 import QtOpenGL, QtWidgets, QtCore
 import numpy as np
-import openmesh as om
 from pyrr import Matrix44
 import os
 
@@ -106,7 +105,6 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
             '''
         )
 
-        self.mesh = None
         self.arc_ball = ArcBallUtil(self.width(), self.height())
         self.center = np.zeros(3)
         self.scale = 1.0
@@ -121,45 +119,39 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
             self.keyframes.load_obj(obj_fn)
         else:
             self.keyframes.load_asg(obj_fn[:-3]+'asg')
-        v = self.keyframes.update_mesh()
-        mesh = om.TriMesh(v, self.keyframes.faces)
+        v, vn = self.keyframes.update_mesh()
         balls = self.keyframes.balls
-        self.set_mesh(mesh, balls)
+        self.init_mesh(v, vn, self.keyframes.faces, balls)
         self.keyframes.prepare_interpolation()
 
-    def set_mesh(self, mesh, balls):
-        self.mesh = mesh
-        self.mesh.update_normals()
-        assert(self.mesh.n_vertices() > 0 and self.mesh.n_faces() > 0)
-        index_buffer = self.ctx.buffer(
-            np.array(self.mesh.face_vertex_indices(), dtype="u4").tobytes())
+    def init_mesh(self, v, vn, f, balls):
+        assert(v.size > 0 and f.size > 0)
+        index_buffer = self.ctx.buffer(f.astype("u4").tobytes())
+        self.vbo_v = self.ctx.buffer(v.astype("f4").tobytes())
+        self.vbo_n = self.ctx.buffer(vn.astype("f4").tobytes())
         vao_content = [
-            (self.ctx.buffer(
-                np.array(self.mesh.points(), dtype="f4").tobytes()),
-                '3f', 'in_position'),
-            (self.ctx.buffer(
-                np.array(self.mesh.vertex_normals(), dtype="f4").tobytes()),
-                '3f', 'in_normal')
+            (self.vbo_v, '3f', 'in_position'),
+            (self.vbo_n, '3f', 'in_normal')
         ]
         self.vao = self.ctx.vertex_array(
                 self.prog, vao_content, index_buffer, 4,
             )
 
         self.balls = np.vstack((balls, balls[-1:])).astype('f4')  # the last for moving
+        self.vbo_ball = self.ctx.buffer(self.balls.tobytes())
         self.balls_color = np.zeros_like(self.balls, 'f4')
         self.balls_color[:, 0] = 1.0
         self.balls_color[:-1, 1] = 1.0
         vao_content_ball = [
-            (self.ctx.buffer(self.balls.tobytes()), '3f', 'in_vert'),
+            (self.vbo_ball, '3f', 'in_vert'),
             (self.ctx.buffer(self.balls_color.tobytes()), '3f', 'in_color')]
         self.vao_balls = self.ctx.vertex_array(
                 self.prog_balls, vao_content_ball
             )
-        self.init_arcball()
+        self.init_arcball(v)
 
-    def init_arcball(self):
+    def init_arcball(self, pts):
         self.arc_ball = ArcBallUtil(self.width(), self.height())
-        pts = self.mesh.points()
         bbmin = np.min(pts, axis=0)
         bbmax = np.max(pts, axis=0)
         self.center = 0.5*(bbmax+bbmin)
@@ -178,7 +170,7 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
         self.ctx.enable_only(moderngl.DEPTH_TEST | moderngl.PROGRAM_POINT_SIZE | 
             moderngl.BLEND)
 
-        if self.mesh is None:
+        if self.balls is None:
             return
 
         self.aspect_ratio = self.width()/max(1.0, self.height())
@@ -200,12 +192,7 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
         self.mvp.write(self.mvp_mat)
         self.prog_balls['Mvp'].write(self.mvp_mat)
 
-        vao_content_ball = [
-            (self.ctx.buffer(self.balls.tobytes()), '3f', 'in_vert'),
-            (self.ctx.buffer(self.balls_color.tobytes()), '3f', 'in_color')]
-        self.vao_balls = self.ctx.vertex_array(
-                self.prog_balls, vao_content_ball
-            )
+        self.vbo_ball.write(self.balls.tobytes())
 
         self.vao.render()
         self.vao_balls.render(moderngl.POINTS, self.balls.shape[0])
@@ -232,24 +219,9 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
         X = np.linalg.solve(self.mvp_mat.T, np.array([x, y, z, 1.0]))
         p = X[:3] / X[3]
         self.balls[-1] = p
-        v = self.keyframes.interpolate(p)
-        
-        self.mesh = om.TriMesh(v, self.keyframes.faces)
-        self.mesh.update_normals()
-        index_buffer = self.ctx.buffer(
-            np.array(self.mesh.face_vertex_indices(), dtype="u4").tobytes())
-        vao_content = [
-            (self.ctx.buffer(
-                np.array(self.mesh.points(), dtype="f4").tobytes()),
-                '3f', 'in_position'),
-            (self.ctx.buffer(
-                np.array(self.mesh.vertex_normals(), dtype="f4").tobytes()),
-                '3f', 'in_normal')
-        ]
-        self.vao = self.ctx.vertex_array(
-                self.prog, vao_content, index_buffer, 4,
-            )
-
+        v, vn = self.keyframes.interpolate(p)
+        self.vbo_v.write(v.astype('f4').tobytes())
+        self.vbo_n.write(vn.astype('f4').tobytes())
 
     def mousePressEvent(self, event):
         if event.buttons() & QtCore.Qt.LeftButton:

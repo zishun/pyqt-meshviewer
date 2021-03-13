@@ -34,7 +34,7 @@ This is an implementation of the animation method presented in
 ## Notes
 
 * Only for viewing. Cannot create new keyframes.
-* ```.asg``` file reading is not implemented. Thus cannot load ```bear_trouble.key``` or ```mashroom_jumping.key```.
+* Only geometry data in```.asg``` file is loaded, color/texture infomation is skipped.
 * To handle the degenerated cases described at the end of section 4.1, small singular values in the linear system are cut-off, which is different from the original paper.
 * SVD decomposition is used for orthonormalization, different from the method in section 4.2.
 
