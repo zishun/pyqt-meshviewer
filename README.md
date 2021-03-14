@@ -24,3 +24,5 @@
     <img src="https://github.com/zishun/pyqt-meshviewer/raw/master/imgs/screenshot_smpl.png" width="350"/>
 
 2. [Squirrel](./applications/squirrel/): a spatial keyframing method
+
+    <img src="https://github.com/zishun/pyqt-meshviewer/raw/master/imgs/screenshot_squirrel.png" width="280"/>

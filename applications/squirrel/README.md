@@ -4,6 +4,7 @@ This is an implementation of the animation method presented in
 
 > Takeo Igarashi, Tomer Moscovich, John F. Hughes, "Spatial Keyframing for Performance-driven Animation", ACM SIGGRAPH / Eurographics Symposium on Computer Animation, 2005.
 
+<img src="https://github.com/zishun/pyqt-meshviewer/raw/master/imgs/screenshot_squirrel.png" width="280"/>
 
 ## Usage
 
@@ -34,7 +35,7 @@ This is an implementation of the animation method presented in
 ## Notes
 
 * Only for viewing. Cannot create new keyframes.
-* Only geometry data in```.asg``` file is loaded, color/texture infomation is skipped.
+* Only geometry data in the ```.asg``` files is loaded. Color/texture information is skipped.
 * To handle the degenerated cases described at the end of section 4.1, small singular values in the linear system are cut-off, which is different from the original paper.
 * SVD decomposition is used for orthonormalization, different from the method in section 4.2.
 
