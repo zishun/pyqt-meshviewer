@@ -1,6 +1,6 @@
 # SMPL Viewer
 
-<img src="https://github.com/zishun/pyqt-meshviewer/raw/master/imgs/screenshot_smpl.png" width="350"/>
+<img src="https://github.com/zishun/pyqt-meshviewer/raw/master/imgs/screenshot_smpl.gif" width="350"/>
 
 ## Dependencies
 

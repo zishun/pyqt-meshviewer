@@ -4,7 +4,7 @@ This is an implementation of the animation method presented in
 
 > Takeo Igarashi, Tomer Moscovich, John F. Hughes, "Spatial Keyframing for Performance-driven Animation", ACM SIGGRAPH / Eurographics Symposium on Computer Animation, 2005.
 
-<img src="https://github.com/zishun/pyqt-meshviewer/raw/master/imgs/screenshot_squirrel.png" width="280"/>
+<img src="https://github.com/zishun/pyqt-meshviewer/raw/master/imgs/screenshot_squirrel.gif" width="280"/>
 
 ## Usage
 
