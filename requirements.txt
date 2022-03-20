@@ -1,0 +1,6 @@
+numpy
+scipy
+openmesh
+moderngl
+PyQt5
+pyrr
