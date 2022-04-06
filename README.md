@@ -7,6 +7,8 @@
 * pyrr
 * openmesh
 
+Install with ```pip install -r requirements.txt```
+
 ## Usage
 
 1. Run
