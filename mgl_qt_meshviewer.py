@@ -100,9 +100,9 @@ class QGLControllerWidget(QtOpenGL.QGLWidget):
         proj = Matrix44.perspective_projection(60.0, self.aspect_ratio,
                                                0.1, 1000.0)
         lookat = Matrix44.look_at(
-            (0.0, 0.0, 2.0),
-            (0.0, 0.0, 0.0),
-            (0.0, 1.0, 0.0),
+            (0.0, 0.0, 2.0),  # eye
+            (0.0, 0.0, 0.0),  # target
+            (0.0, 1.0, 0.0),  # up
         )
 
         self.light.value = (1.0, 1.0, 1.0)
